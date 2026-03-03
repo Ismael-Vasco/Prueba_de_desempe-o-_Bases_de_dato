@@ -1,4 +1,5 @@
 # PROJECT
+![LOGO](logo.png)
 
 ## INTRODUCTION
 You have joined the engineering team of **`LogiTech Solutions`**, a specialist consultancy in modernization of systems for retail and e-commerce.
@@ -473,7 +474,7 @@ app.get('/api/logs', async (req,res) =>{
 ```
 
 ### CRUD ENDPOINTS
-**CREATE**
+**CREATE** `http://localhost:3000/api/transaction`
 ```js
 app.post('/api/transaction', async (req, res) => {
   try {
@@ -508,7 +509,7 @@ app.post('/api/transaction', async (req, res) => {
   }
 });
 ```
-**READ ONE**
+**READ ONE** `http://localhost:3000/api/transaction/:id`
 ```js
 app.get('/api/transaction/:id', async (req, res) => {
   try {
@@ -544,7 +545,7 @@ app.get('/api/transaction/:id', async (req, res) => {
   }
 });
 ```
-**READ ALL**
+**READ ALL** `http://localhost:3000/api/transaction`
 ```js
 app.get('/api/transaction', async (req, res) => {
   try {
@@ -572,7 +573,7 @@ app.get('/api/transaction', async (req, res) => {
   }
 });
 ```
-**UPDATE**
+**UPDATE** `http://localhost:3000/api/transaction/:id`
 ```js
 app.put('/api/transaction/:id', async (req, res) => {
   try {
@@ -616,7 +617,7 @@ app.put('/api/transaction/:id', async (req, res) => {
   }
 });
 ```
-**DELETE**
+**DELETE** `http://localhost:3000/api/transaction/:id`
 ```js
 app.delete('/api/transaction/:id', async (req, res) => {
   try {
@@ -641,6 +642,172 @@ app.delete('/api/transaction/:id', async (req, res) => {
   }
 });
 ```
+---
+
+### ADVANCE QUERIES (BUSSINESS INTELLIGENCE)
+The Operations Manager needs to visualize the following information through
+Postman:
+
+#### Supplier analysis
+I need to know which suppliers have sold us the most products (in quantity of items) and what the total inventory value is that we have associated with each one.
+
+##### EXECUTE VIEW IN POSTGRESQL
+```sql
+SELECT DISTINCT s.name as SUPPLIER_NAME,
+		SUM(t.total_line_value) as TOTAL_SOLD
+FROM suppliers s
+INNER JOIN TRANSACTION t ON t.supplier_id = s.id
+GROUP BY s.name
+ORDER BY TOTAL_SOLD DESC;
+```
+
+**SUPPLIER ANALYSIS** `http://localhost:3000/api/supplier-analysis`
+```JS
+app.get('/api/supplier-analysis', async (req, res) => {
+  try {
+
+    const result = await pool.query(
+      `SELECT DISTINCT s.name as SUPPLIER_NAME,
+		          SUM(t.total_line_value) as TOTAL_SOLD
+      FROM suppliers s
+      INNER JOIN TRANSACTION t ON t.supplier_id = s.id
+      GROUP BY s.name
+      ORDER BY TOTAL_SOLD DESC;
+            `
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    
+    await saveLog('READ SUPPLIERS ANALYSIS');
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching transaction' });
+  }
+});
+```
+
+
+#### Customer behavior:
+I want to see the purchase history of a specific customer, detailing
+products, dates and the total spent on each transaction.
+
+##### EXECUTE QUERY IN POSTGRESQL
+```sql
+`SELECT 
+          t.transaction_id,
+          t.date,
+          c.name as Customer_Name,
+          p.name as Proucts_Bought,
+          t.quantity,
+          t.total_line_value as total_bought
+        FROM transaction t
+        INNER JOIN customer c on c.id = t.customer_id
+        INNER JOIN product p on p.id = t.product_id 
+        WHERE t.customer_id = 1 / 2 / 3 ....
+        ORDER BY date ASC;
+```
+---
+
+**CUSTOMER BEHAVIOR** `http://localhost:3000/api/customer-behavior/:id`
+```JS
+app.get('/api/customer-behavior/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+          t.transaction_id,
+          t.date,
+          c.name as Customer_Name,
+          p.name as Proucts_Bought,
+          t.quantity,
+          t.total_line_value as total_bought
+        FROM transaction t
+        INNER JOIN customer c on c.id = t.customer_id
+        INNER JOIN product p on p.id = t.product_id 
+        WHERE t.customer_id = $1
+        ORDER BY date ASC;
+            `,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    
+    await saveLog('READ BEHAVIOR');
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching transaction' });
+  }
+});
+```
+--- 
+
+#### Star products:
+Generates a list of best-selling products within a category
+specific, sorted by revenue generated.
+
+##### EXECUTE QUERY IN POSTGRESQL
+```sql
+`SELECT 
+                p.name AS product,
+                c.name as category,
+                SUM(t.quantity) AS total_sold,
+                (SUM(t.quantity) * p.unit_price) as INCOMES
+            FROM transaction t
+            JOIN product p ON p.id = t.product_id
+            INNER JOIN category c on c.id  = p.category_id 
+            WHERE c.id = 1 / 2 / 3 / 4 ....
+            GROUP BY p.name, c.name, p.unit_price 
+            ORDER BY total_sold desc;
+```
+
+**STAR PRODUCTS** `http://localhost:3000/api/star-products/:id`
+```js
+app.get('/api/star-products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+                p.name AS product,
+                c.name as category,
+                SUM(t.quantity) AS total_sold,
+                (SUM(t.quantity) * p.unit_price) as INCOMES
+            FROM transaction t
+            JOIN product p ON p.id = t.product_id
+            INNER JOINn category c on c.id  = p.category_id 
+            where c.id = $1
+            GROUP BY p.name, c.name, p.unit_price 
+            ORDER BY total_sold desc;
+            `,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    
+    await saveLog('READ STAR PRODUCTS');
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching transaction' });
+  }
+});
+```
+
 
 ## AUTHOR
 Ismael Vasco

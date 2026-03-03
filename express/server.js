@@ -456,8 +456,108 @@ app.delete('/api/transaction/:id', async (req, res) => {
 
 //  ADVANCE QUERIES (BUSSINESS INTELLIGENCE)
 
+// SUPPLIER ANALYSIS
+app.get('/api/supplier-analysis', async (req, res) => {
+  try {
+
+    const result = await pool.query(
+      `SELECT DISTINCT s.name as SUPPLIER_NAME,
+		          SUM(t.total_line_value) as TOTAL_SOLD
+      FROM suppliers s
+      INNER JOIN TRANSACTION t ON t.supplier_id = s.id
+      GROUP BY s.name
+      ORDER BY TOTAL_SOLD DESC;
+            `
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    
+    await saveLog('READ SUPPLIERS ANALYSIS');
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching transaction' });
+  }
+});
 
 
+
+// CUSTOMER BEHAVIOR
+app.get('/api/customer-behavior/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+          t.transaction_id,
+          t.date,
+          c.name as Customer_Name,
+          p.name as Proucts_Bought,
+          t.quantity,
+          t.total_line_value as total_bought
+        FROM transaction t
+        INNER JOIN customer c on c.id = t.customer_id
+        INNER JOIN product p on p.id = t.product_id 
+        WHERE t.customer_id = $1
+        ORDER BY date ASC;
+            `,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    
+    await saveLog('READ BEHAVIOR');
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching transaction' });
+  }
+});
+
+
+
+// STAR PRODUCTS
+app.get('/api/star-products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+                p.name AS product,
+                c.name as category,
+                SUM(t.quantity) AS total_sold,
+                (SUM(t.quantity) * p.unit_price) as INCOMES
+            FROM transaction t
+            JOIN product p ON p.id = t.product_id
+            inner join category c on c.id  = p.category_id 
+            where c.id = $1
+            GROUP BY p.name, c.name, p.unit_price 
+            ORDER BY total_sold desc;
+            `,
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+    
+    
+    await saveLog('READ STAR PRODUCTS');
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error fetching transaction' });
+  }
+});
 
 // ================= SERVER =================
 app.listen(3000, () => {
