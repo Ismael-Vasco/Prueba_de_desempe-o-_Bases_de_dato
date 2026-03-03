@@ -489,7 +489,6 @@ app.post('/api/transaction', async (req, res) => {
 
     
     const response = await specific_data(product_id)
-    // console.log(response.unit_price)
 
     const result = await pool.query(
       `INSERT INTO transaction 
@@ -508,6 +507,18 @@ app.post('/api/transaction', async (req, res) => {
     res.status(500).json({ error: 'Error creating transaction' });
   }
 });
+```
+
+**EXAMPLE JSON INTO POSTMAN `BODY`**
+```js
+{
+    "transaction_id": "TXN-1018",
+    "date": "2025-03-2",
+    "customer_id": 7,
+    "product_id": 16,
+    "quantity": 3,
+    "supplier_id": 1
+}
 ```
 **READ ONE** `http://localhost:3000/api/transaction/:id`
 ```js
@@ -617,6 +628,19 @@ app.put('/api/transaction/:id', async (req, res) => {
   }
 });
 ```
+
+**EXAMPLE JSON INTO POSTMAN `BODY`**
+```js
+{
+    "transaction_id": "TXN-1018",
+    "date": "2025-03-2",
+    "customer_id": 7,
+    "product_id": 16,
+    "quantity": 3,
+    "supplier_id": 1
+}
+```
+
 **DELETE** `http://localhost:3000/api/transaction/:id`
 ```js
 app.delete('/api/transaction/:id', async (req, res) => {
